@@ -1,0 +1,111 @@
+date_range:
+  start: 2016-01-01
+  end: 2026-05-31
+
+timezone: US/Eastern
+
+symbols:
+  - USO
+  - BNO
+  - DBO
+  - USL
+  - UCO
+  - SCO
+
+target_symbol: USO
+
+windows:
+  H: [60, 120]
+  F: [1, 5]
+
+calendar:
+  source_symbol: SPY
+
+collection:
+  include_news: true
+  include_reports: true
+  news_sources: [yfinance, gdelt]
+  preserve_existing_news: true
+  news_per_symbol_limit: 200
+  news_cutoff_hour_et: 16
+  max_report_items_per_source: 20
+  gdelt:
+    endpoint: http://api.gdeltproject.org/api/v2/doc/doc
+    query: '("crude oil" OR "oil prices" OR "oil futures" OR WTI OR Brent OR OPEC)'
+    start: 2024-01-01
+    interval_months: 3
+    max_records_per_query: 100
+    sort: HybridRel
+    language: English
+    min_request_interval_seconds: 7.0
+    retry_count: 1
+    rate_limit_backoff_seconds: 20.0
+    timeout_seconds: 20
+
+macro:
+  fred:
+    wti: DCOILWTICO
+    brent: DCOILBRENTEU
+    dxy: DTWEXB
+  eia_inventory:
+    crude: WCESTUS1
+    gasoline: WGTSTUS1
+    distillate: WDISTUS1
+  yfinance:
+    - SPY
+    - XLE
+    - ^VIX
+
+paths:
+  raw: data/raw
+  processed: data/processed
+  timemmd_numerical: data/numerical/OilETF
+  timemmd_textual: data/textual/OilETF
+  images: data/images/OilETF
+  metadata: data/metadata
+  outputs: outputs
+
+split:
+  train_ratio: 0.7
+  val_ratio: 0.1
+  test_ratio: 0.2
+  method: time_order
+
+sample_settings:
+  - H: 60
+    F: 1
+  - H: 120
+    F: 5
+
+technical:
+  ma_windows: [5, 20, 60]
+  ema_windows: [12, 26]
+  atr_window: 14
+  rsi_window: 14
+  macd_signal: 9
+  vol_windows: [5, 20]
+  news_keyword:
+    - crude oil
+    - WTI
+    - Brent
+    - OPEC
+    - EIA
+    - API
+    - inventory
+    - production
+    - supply
+    - demand
+    - Iran
+    - Saudi
+    - Russia
+    - Middle East
+    - hurricane
+    - DXY
+    - USD
+    - inflation
+    - sanctions
+    - refinery
+
+outputs:
+  dataset_name: OilETF
+  dataset_version: 0.1.0
