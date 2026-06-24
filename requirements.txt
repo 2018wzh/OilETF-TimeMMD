@@ -9,3 +9,4 @@ xlrd==2.0.2
 pytest==9.0.2
 tqdm==4.67.1
 huggingface_hub==1.2.3
+python-dotenv==1.0.1

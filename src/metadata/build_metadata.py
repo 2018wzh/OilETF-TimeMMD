@@ -67,7 +67,7 @@ def build_dataset_card(
         "data_sources": {
             "prices": "yfinance",
             "macro": "FRED + yfinance + EIA weekly petroleum XLS",
-            "news": "yfinance.news + GDELT DOC API + derived daily market facts",
+            "news": "finnhub.company-news",
             "reports": "public RSS/web pages + derived EIA inventory release facts",
         },
         "field_columns": list(outputs["numerical_columns"]),

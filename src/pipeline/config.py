@@ -2,14 +2,45 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 from typing import Any, Dict
 
 import pandas as pd
+
+
+def _load_env_file() -> None:
+    # ponytail: root-level load only, avoid repeating dotenv logic in every entrypoint.
+    env_file = None
+    start = Path(__file__).resolve()
+    for parent in (start.parent.parent, start.parent.parent.parent):
+        candidate = parent / ".env"
+        if candidate.exists():
+            env_file = candidate
+            break
+    if env_file is None:
+        return
+
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(env_file, override=False)
+    except Exception:
+        for raw in env_file.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip("\"").strip("'")
+            os.environ.setdefault(key, value)
 
 try:
     import yaml
 except Exception:  # pragma: no cover - dependency fallback message is explicit in loader
     yaml = None
+
+
+_load_env_file()
 
 
 @dataclass(frozen=True)

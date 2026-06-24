@@ -36,6 +36,30 @@ def _window_events(events: pd.DataFrame, end_time: pd.Timestamp, hours: int) -> 
     return events[(available <= end_time) & (available > start_time)]
 
 
+def _event_symbol_index(events: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    index: dict[str, list[int]] = {}
+    for idx, raw_symbols in enumerate(events.get("affected_symbols", pd.Series([""] * len(events))).fillna("")):
+        for symbol in str(raw_symbols).replace(";", ",").split(","):
+            symbol = symbol.strip().upper()
+            if not symbol:
+                continue
+            index.setdefault(symbol, []).append(idx)
+    return {symbol: events.iloc[idxs].copy() for symbol, idxs in index.items()}
+
+
+def _split_event_counts(events: pd.DataFrame) -> dict[str, float]:
+    counts = events["event_type"].fillna("news").astype(str).value_counts().to_dict()
+    return {
+        "price": float(counts.get("price", 0)),
+        "opec": float(counts.get("opec", 0)),
+        "inventory": float(counts.get("inventory", 0)),
+        "geo": float(counts.get("geo", 0)),
+        "macro": float(counts.get("macro", 0)),
+        "supply_demand": float(counts.get("supply_demand", 0)),
+        "news_other": float(counts.get("news", 0)),
+    }
+
+
 def build_intraday_panel(bars_path: Path, events_path: Path, out_path: Path | None = None) -> pd.DataFrame:
     bars = pd.read_parquet(bars_path).copy()
     events = pd.read_parquet(events_path).copy() if events_path.exists() else pd.DataFrame()
@@ -59,28 +83,55 @@ def build_intraday_panel(bars_path: Path, events_path: Path, out_path: Path | No
         panel["ma_20h"] = panel.groupby("symbol")["close"].transform(lambda x: x.rolling(20).mean())
         panel["rsi_14h"] = panel.groupby("symbol")["close"].transform(lambda x: _rsi(x, 14))
 
-        if not events.empty:
-            events["sentiment"] = pd.to_numeric(events.get("sentiment", 0.0), errors="coerce").fillna(0.0)
-            text = events.get("title", "").fillna("").astype(str) + " " + events.get("summary", "").fillna("").astype(str)
-            events["oil_event_count"] = text.map(_event_count)
+    if not events.empty:
+        events["sentiment"] = pd.to_numeric(events.get("sentiment", 0.0), errors="coerce").fillna(0.0)
+        text = events.get("title", "").fillna("").astype(str) + " " + events.get("summary", "").fillna("").astype(str)
+        events["oil_event_count"] = text.map(_event_count)
+        events["event_type"] = events.get("event_type", "news").fillna("news").astype(str)
+        events_by_symbol = _event_symbol_index(events)
+    else:
+        events_by_symbol = {}
 
-        rows = []
-        for end_time in panel["bar_end_utc_dt"]:
-            ev1 = _window_events(events, end_time, 1)
-            ev6 = _window_events(events, end_time, 6)
-            rows.append(
-                {
-                    "news_count_1h": len(ev1),
-                    "news_count_6h": len(ev6),
-                    "news_sent_mean_6h": float(ev6["sentiment"].mean()) if len(ev6) else 0.0,
-                    "oil_event_count_6h": float(ev6["oil_event_count"].sum()) if len(ev6) else 0.0,
-                    "news_agg_6h": " | ".join((ev6.get("summary", pd.Series(dtype=str)).fillna("").astype(str).head(5)).tolist()),
-                }
-            )
-        panel = pd.concat([panel, pd.DataFrame(rows)], axis=1)
-        panel["start_date"] = pd.to_datetime(panel["bar_start_utc"], utc=True).map(lambda x: x.isoformat())
-        panel["end_date"] = panel["bar_end_utc_dt"].map(lambda x: x.isoformat())
-        panel = panel.drop(columns=["bar_end_utc_dt"])
+    rows = []
+    for _, row in panel.iterrows():
+        end_time = row["bar_end_utc_dt"]
+        current_symbol = str(row["symbol"]).upper()
+        symbol_events = events_by_symbol.get(current_symbol, pd.DataFrame())
+        if not symbol_events.empty:
+            ev1 = _window_events(symbol_events, end_time, 1)
+            ev6 = _window_events(symbol_events, end_time, 6)
+        else:
+            ev1 = symbol_events
+            ev6 = symbol_events
+        split_1h = _split_event_counts(ev1)
+        split_6h = _split_event_counts(ev6)
+        rows.append(
+            {
+                "news_count_1h": len(ev1),
+                "news_count_6h": len(ev6),
+                "news_price_count_1h": split_1h["price"],
+                "news_opec_count_1h": split_1h["opec"],
+                "news_inventory_count_1h": split_1h["inventory"],
+                "news_geo_count_1h": split_1h["geo"],
+                "news_macro_count_1h": split_1h["macro"],
+                "news_supply_demand_count_1h": split_1h["supply_demand"],
+                "news_other_count_1h": split_1h["news_other"],
+                "news_price_count_6h": split_6h["price"],
+                "news_opec_count_6h": split_6h["opec"],
+                "news_inventory_count_6h": split_6h["inventory"],
+                "news_geo_count_6h": split_6h["geo"],
+                "news_macro_count_6h": split_6h["macro"],
+                "news_supply_demand_count_6h": split_6h["supply_demand"],
+                "news_other_count_6h": split_6h["news_other"],
+                "news_sent_mean_6h": float(ev6["sentiment"].mean()) if len(ev6) else 0.0,
+                "oil_event_count_6h": float(ev6["oil_event_count"].sum()) if len(ev6) else 0.0,
+                "news_agg_6h": " | ".join((ev6.get("summary", pd.Series(dtype=str)).fillna("").astype(str).head(5)).tolist()),
+            }
+        )
+    panel = pd.concat([panel, pd.DataFrame(rows)], axis=1)
+    panel["start_date"] = pd.to_datetime(panel["bar_start_utc"], utc=True).map(lambda x: x.isoformat())
+    panel["end_date"] = panel["bar_end_utc_dt"].map(lambda x: x.isoformat())
+    panel = panel.drop(columns=["bar_end_utc_dt"])
 
     if out_path is not None:
         out_path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,4 +1,23 @@
-# OilETF-TimeMMD 数据工程闭环
+# OilETF-TimeMMD — 石油 ETF 多模态时序预测数据集
+
+## 数据集概览
+
+| 维度 | OilETF (daily) | OilETF-intraday (hourly) |
+|------|---------------|-------------------------|
+| ETF 标的 | USO, BNO, DBO, USL, SCO | 同上 (UCO 已移除, yfinance 无数据) |
+| 价格频率 | 日线 | 小时线 (9:30-16:00 ET) |
+| 价格跨度 | 2016-01 → 2026-06 | 2024-06 → 2026-06 |
+| 新闻源 | Finnhub + GDELT | Finnhub + GDELT (共享缓存) |
+| 新闻跨度 | 2017-10 → 2026-06 | 2017-10 → 2026-06 |
+| 事件类型 | — | geo / price / opec / macro / inventory / supply_demand |
+| 样本配置 | H60F1 / H120F5 | H60F1 / H120F7 |
+| 多模态 | 价格 + 新闻 + 宏观 + 库存 | 价格 + 事件 + 日内新闻 |
+
+## 缓存策略
+
+- Daily 与 Intraday 共享 `data/raw/news/raw_news.csv` 新闻缓存
+- 每次构建自动增量：只抓取上次缓存日期之后的新文章
+- GDELT 提供 2017+ 历史新闻覆盖，Finnhub 提供近 30 天 per-symbol 新闻
 
 ## 一键构建数据集
 
@@ -49,9 +68,11 @@ python build.py --mode intraday --upload-only --hf-repo-id <repo_id>
 python -m src.pipeline.build_dataset --mode daily --config configs/data_config.yaml
 ```
 
-当前 `configs/data_config.yaml` 已固定 `date_range.end: 2026-05-31`，避免后续运行因日期自动前移导致样本数量变化。
+当前 `configs/data_config.yaml` 已固定 `date_range.end: 2026-06-24`，避免后续运行因日期自动前移导致样本数量变化。
 小时级价格源使用 `yfinance` 的 `1h` 历史数据，默认通过 `intraday.yfinance_period: 730d` 拉取后再按配置日期过滤；如 Yahoo 返回空数据，可缩短 `intraday.lookback_years` 或 `intraday.yfinance_period`。
-新闻源默认包含 `yfinance.news` 和无需 API key 的 GDELT DOC API；GDELT 受公开接口限流影响，默认从 `2024-01-01` 起回补，并保留已有 `raw_news.csv` 缓存以便多次运行逐步补齐。需要扩大历史范围时，修改 `collection.gdelt.start`。
+小时级新闻源已切换为单一官方源：`finnhub`（`company-news`）。
+如需构建新闻特征，请在环境变量或配置中提供 `FINNHUB_API_KEY`（或 `collection.finnhub.api_key`），否则构建在新闻采集阶段会直接失败并报错，不会再通过其他源兜底补齐。
+请注意：GDELT、yfinance.news、RSS 在本项目当前版本不再作为新闻 fallback，出现 `no usable news items collected` 则是 Finnhub 数据确实缺失或限流结果。
 
 ## 输出
 - `data/raw/prices/raw_prices.csv`

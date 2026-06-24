@@ -1,6 +1,6 @@
 date_range:
   start: 2016-01-01
-  end: 2026-05-31
+  end: 2026-06-24
 
 timezone: US/Eastern
 
@@ -9,7 +9,6 @@ symbols:
   - BNO
   - DBO
   - USL
-  - UCO
   - SCO
 
 target_symbol: USO
@@ -24,23 +23,30 @@ calendar:
 collection:
   include_news: true
   include_reports: true
-  news_sources: [yfinance, gdelt]
+  news_sources: [finnhub, gdelt]
   preserve_existing_news: true
   news_per_symbol_limit: 200
   news_cutoff_hour_et: 16
   max_report_items_per_source: 20
+  finnhub:
+    endpoint: https://finnhub.io/api/v1/company-news
+    min_request_interval_seconds: 1.0
+    retry_count: 2
+    retry_backoff_seconds: 5
+    timeout_seconds: 30
+  # keep optional and explicit: FINNHUB_API_KEY is loaded from .env or config.finnhub.api_key
+  # api_key: YOUR_FINNHUB_API_KEY
   gdelt:
     endpoint: http://api.gdeltproject.org/api/v2/doc/doc
-    query: '("crude oil" OR "oil prices" OR "oil futures" OR WTI OR Brent OR OPEC)'
-    start: 2024-01-01
-    interval_months: 3
+    query: '("crude oil" OR WTI OR Brent OR OPEC)'
     max_records_per_query: 100
+    interval_months: 6
     sort: HybridRel
     language: English
-    min_request_interval_seconds: 7.0
-    retry_count: 1
-    rate_limit_backoff_seconds: 20.0
-    timeout_seconds: 20
+    min_request_interval_seconds: 5.5
+    retry_count: 2
+    rate_limit_backoff_seconds: 30
+    timeout_seconds: 30
 
 macro:
   fred:
@@ -79,12 +85,19 @@ sample_settings:
 
 intraday:
   enabled: true
-  symbols: [USO]
+  symbols: [USO, BNO, DBO, USL, SCO]
   lookback_years: 2
-  source: yfinance
+  source: finnhub
+  news_sources: [finnhub, gdelt]
   yfinance_period: 730d
   session: regular
   bar_minutes: 60
+  finnhub:
+    endpoint: https://finnhub.io/api/v1/company-news
+    min_request_interval_seconds: 1.0
+    retry_count: 2
+    retry_backoff_seconds: 5
+    timeout_seconds: 30
   sample_settings:
     - H: 60
       F: 1
@@ -125,5 +138,5 @@ outputs:
   dataset_version: 0.1.0
 
 huggingface:
-  repo_id: ""
+  repo_id: "2018wzh/OilETF-TimeMMD"
   private: false
