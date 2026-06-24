@@ -77,6 +77,20 @@ sample_settings:
   - H: 120
     F: 5
 
+intraday:
+  enabled: true
+  symbols: [USO]
+  lookback_years: 2
+  source: yfinance
+  yfinance_period: 730d
+  session: regular
+  bar_minutes: 60
+  sample_settings:
+    - H: 60
+      F: 1
+    - H: 120
+      F: 7
+
 technical:
   ma_windows: [5, 20, 60]
   ema_windows: [12, 26]
@@ -109,3 +123,7 @@ technical:
 outputs:
   dataset_name: OilETF
   dataset_version: 0.1.0
+
+huggingface:
+  repo_id: ""
+  private: false

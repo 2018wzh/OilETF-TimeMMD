@@ -6,3 +6,6 @@ requests==2.34.2
 matplotlib==3.10.9
 pyarrow==24.0.0
 xlrd==2.0.2
+pytest==9.0.2
+tqdm==4.67.1
+huggingface_hub==1.2.3
